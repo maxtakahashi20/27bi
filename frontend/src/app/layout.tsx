@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Bebas_Neue, Cinzel, Source_Serif_4 } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
+import { SITE_LOGO } from "@/lib/branding";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -29,6 +30,10 @@ export const metadata: Metadata = {
   description:
     "Brigada de Infantaria Paraquedista — Sistema institucional, recrutamento e gestão de candidatos.",
   openGraph: { title: "27º BI Pqdt", description: "Forja de soldados paraquedistas.", type: "website" },
+  icons: {
+    icon: [{ url: SITE_LOGO.src, type: "image/png" }],
+    apple: [{ url: SITE_LOGO.src, type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
