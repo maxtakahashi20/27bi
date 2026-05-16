@@ -50,7 +50,7 @@ export class AdminController {
 
   @Get("settings")
   settings() {
-    const p = process.env.ADMIN_PASSWORD;
+    const p = process.env.ADMIN_PASSWORD?.trim();
     return {
       adminPasswordConfigured: Boolean(p && p.length >= 8),
       emailEnabled: this.email.isConfigured(),

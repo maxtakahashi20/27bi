@@ -51,7 +51,7 @@ export class AuthController {
     const parsed = AdminPasswordSchema.safeParse(body);
     if (!parsed.success) throw new HttpException(parsed.error.format(), HttpStatus.BAD_REQUEST);
 
-    const expected = process.env.ADMIN_PASSWORD;
+    const expected = process.env.ADMIN_PASSWORD?.trim();
     if (!expected || expected.length < 8) {
       throw new HttpException("Painel admin não configurado (ADMIN_PASSWORD).", HttpStatus.SERVICE_UNAVAILABLE);
     }
