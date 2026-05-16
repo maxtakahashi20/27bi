@@ -18,6 +18,8 @@ export type GatePhase = "idle" | "checking" | "need_register" | "waiting_approva
 
 type AdminAuthState = {
   token: string | null;
+  /** Role extraída do JWT (painel). */
+  jwtRole: "ADMIN" | "INSTRUCTOR" | null;
   hydrated: boolean;
   gatePhase: GatePhase;
   loading: boolean;
@@ -32,6 +34,21 @@ type AdminAuthState = {
 };
 
 const AdminAuthContext = createContext<AdminAuthState | null>(null);
+
+function parseJwtRole(token: string | null): "ADMIN" | "INSTRUCTOR" | null {
+  if (!token) return null;
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const payload = JSON.parse(atob(pad)) as { role?: string };
+    if (payload.role === "ADMIN" || payload.role === "INSTRUCTOR") return payload.role;
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 function buildDiscordPayload(session: ReturnType<typeof useSession>["data"]) {
   if (!session) return null;
@@ -145,6 +162,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AdminAuthState>(
     () => ({
       token,
+      jwtRole: parseJwtRole(token),
       hydrated,
       gatePhase,
       loading,

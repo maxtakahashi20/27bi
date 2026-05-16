@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Check, FileText, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAdminAuth } from "@/contexts/admin-auth";
 import type { ApplicationDto } from "@/types/models";
 import { toast } from "sonner";
 
 export default function AdminApplicationsPage() {
-  const { apiHeaders } = useAdminAuth();
+  const { apiHeaders, jwtRole } = useAdminAuth();
+  const canDelete = jwtRole === "ADMIN";
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
@@ -106,6 +108,7 @@ export default function AdminApplicationsPage() {
                 <th className="p-3">Curso</th>
                 <th className="p-3">Data</th>
                 <th className="p-3">Status</th>
+                <th className="p-3 w-14 text-center">Ficha</th>
                 <th className="p-3 text-right">Ações</th>
               </tr>
             </thead>
@@ -136,41 +139,63 @@ export default function AdminApplicationsPage() {
                       {a.status}
                     </span>
                   </td>
-                  <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => update(a.id, "APPROVED")}
-                      className="text-xs px-2 py-1 rounded border border-green-800 text-green-300"
+                  <td className="p-3 text-center">
+                    <Link
+                      href={`/admin/applications/${a.id}`}
+                      title="Ver formulário completo"
+                      aria-label="Ver formulário completo"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded border border-olive-700 text-olive-200 hover:bg-ink-700/50 hover:text-olive-50"
                     >
-                      OK
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => update(a.id, "REJECTED")}
-                      className="text-xs px-2 py-1 rounded border border-red-800 text-red-300"
-                    >
-                      X
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => update(a.id, "PENDING")}
-                      className="text-xs px-2 py-1 rounded border border-olive-700 text-olive-200"
-                    >
-                      ?
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(a.id)}
-                      className="text-xs px-2 py-1 rounded border border-red-950 text-red-400"
-                    >
-                      Del
-                    </button>
+                      <FileText className="h-4 w-4" aria-hidden />
+                    </Link>
+                  </td>
+                  <td className="p-3 text-right">
+                    <div className="inline-flex flex-wrap items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => update(a.id, "APPROVED")}
+                        title="Aprovar"
+                        aria-label="Aprovar inscrição"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded border border-green-800 text-green-300 hover:bg-green-950/40"
+                      >
+                        <Check className="h-4 w-4" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => update(a.id, "REJECTED")}
+                        title="Reprovar"
+                        aria-label="Reprovar inscrição"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded border border-red-800 text-red-300 hover:bg-red-950/30"
+                      >
+                        <XCircle className="h-4 w-4" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => update(a.id, "PENDING")}
+                        title="Marcar como pendente"
+                        aria-label="Marcar como pendente"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded border border-olive-700 text-olive-200 hover:bg-ink-700/50"
+                      >
+                        <RotateCcw className="h-4 w-4" aria-hidden />
+                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => remove(a.id)}
+                          title="Excluir permanentemente"
+                          aria-label="Excluir inscrição"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded border border-red-950 text-red-400 hover:bg-red-950/25"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-10 text-center text-olive-200/50">
+                  <td colSpan={7} className="p-10 text-center text-olive-200/50">
                     Nenhuma inscrição encontrada.
                   </td>
                 </tr>

@@ -40,19 +40,31 @@ export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => 
     register,
     handleSubmit,
     reset,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<FormData>();
 
   useEffect(() => {
-    if (open) api.get("/courses").then((r) => setCourses(r.data ?? [])).catch(() => setCourses([]));
-  }, [open]);
+    if (open) {
+      clearErrors();
+      api.get("/courses").then((r) => setCourses(r.data ?? [])).catch(() => setCourses([]));
+    }
+  }, [open, clearErrors]);
 
   if (!open) return null;
 
   const onSubmit = async (data: FormData) => {
     const parsed = schema.safeParse(data);
     if (!parsed.success) {
-      toast.error("Verifique os campos");
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      for (const [key, msgs] of Object.entries(fieldErrors)) {
+        const msg = msgs?.[0];
+        if (msg) setError(key as keyof FormData, { type: "manual", message: msg });
+      }
+      const first = Object.values(fieldErrors).flat().find(Boolean);
+      const formMsgs = parsed.error.flatten().formErrors;
+      toast.error(first ?? formMsgs[0] ?? "Verifique os campos");
       return;
     }
     try {
@@ -90,7 +102,7 @@ export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => 
           {[
             ["fullName", "Nome completo", "text", "md:col-span-2"],
             ["age", "Idade", "number"],
-            ["cpf", "CPF", "text"],
+            ["cpf", "CPF (11 dígitos)", "text"],
             ["discordTag", "Discord (ex: usuario ou usuario#0)", "text"],
             ["discordUserId", "ID Discord (opcional, para DM — modo desenvolvedor)", "text"],
             ["email", "Email", "email"],
@@ -129,7 +141,7 @@ export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => 
 
           <label className="flex flex-col gap-1.5 md:col-span-2">
             <span className="font-subtitle text-[10px] uppercase tracking-[0.2em] text-gold/90">Motivação</span>
-            <textarea rows={3} {...register("motivation")} className={inputClass} />
+            <textarea rows={3} {...register("motivation")} className={inputClass} placeholder="Mínimo 10 caracteres" />
             {errors.motivation && <span className="text-xs text-bravery">{errors.motivation.message}</span>}
           </label>
 
