@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { background: #0a0c08; color: #e7ead9; }
+
+.text-shadow-md { text-shadow: 0 2px 12px rgba(0,0,0,0.55); }
+.bg-noise { background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 3px 3px; }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: none; } }
+.animate-fade-up { animation: fade-up .7s ease-out both; }

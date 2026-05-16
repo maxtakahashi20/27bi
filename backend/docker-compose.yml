@@ -1,0 +1,17 @@
+# Postgres local — alinhe com DATABASE_URL do .env.example:
+# postgresql://user:pass@localhost:5432/bip27?schema=public
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bip27-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: bip27
+    volumes:
+      - bip27_pgdata:/var/lib/postgresql/data
+
+volumes:
+  bip27_pgdata:
