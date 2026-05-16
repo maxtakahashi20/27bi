@@ -16,6 +16,7 @@ enum ApplicationStatus {
 enum Role {
   USER
   ADMIN
+  INSTRUCTOR
 }
 
 model User {
@@ -31,6 +32,20 @@ model User {
   notifications Notification[]
 
   @@map("users")
+}
+
+/// Cadastro de quem pede acesso ao painel (instrutor). Liberação manual: `users.role` = INSTRUCTOR no banco.
+model InstructorRegistration {
+  id          String   @id @default(cuid())
+  discordId   String   @unique @map("discord_id")
+  fullName    String   @map("full_name")
+  rg          String
+  phone       String
+  graduation  String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("instructor_registrations")
 }
 
 model Course {

@@ -1,1 +1,1 @@
-export { useAdminAuth, AdminAuthProvider, AdminSignOut } from "@/contexts/admin-auth";
+export { useAdminAuth, AdminAuthProvider, AdminSignOut, type GatePhase } from "@/contexts/admin-auth";

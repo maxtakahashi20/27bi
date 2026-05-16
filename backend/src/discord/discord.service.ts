@@ -53,6 +53,18 @@ export class DiscordService {
     }
   }
 
+  /** Confirma que o token OAuth pertence ao discordId informado. */
+  async accessTokenMatchesUser(accessToken: string, discordId: string): Promise<boolean> {
+    try {
+      const res = await axios.get("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      return res.data?.id === discordId;
+    } catch {
+      return false;
+    }
+  }
+
   async sendWebhook(content?: string, embeds?: Record<string, unknown>[]) {
     if (!this.WEBHOOK_URL) return;
     try {

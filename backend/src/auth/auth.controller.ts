@@ -1,12 +1,12 @@
-import * as crypto from "crypto";
 import { Body, Controller, ForbiddenException, HttpException, HttpStatus, Post, UseGuards } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { SkipThrottle, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { z } from "zod";
 import { PrismaService } from "../common/prisma.service";
+import { sanitizeText } from "../common/sanitize";
 import { DiscordService } from "../discord/discord.service";
 
-const ExchangeSchema = z.object({
+const DiscordSessionSchema = z.object({
   accessToken: z.string().min(10),
   discordId: z.string(),
   username: z.string(),
@@ -14,23 +14,12 @@ const ExchangeSchema = z.object({
   avatar: z.string().optional().nullable(),
 });
 
-const AdminPasswordSchema = z.object({
-  password: z.string().min(1).max(200),
+const InstructorRegisterSchema = DiscordSessionSchema.extend({
+  fullName: z.string().min(3).max(120),
+  rg: z.string().min(4).max(20),
+  phone: z.string().min(8).max(20),
+  graduation: z.string().min(2).max(120),
 });
-
-/** Usuário técnico para JWT do painel por senha (FK em logs). */
-const PANEL_DISCORD_ID = "internal-admin-password";
-
-function sha256Hex(value: string): Buffer {
-  return crypto.createHash("sha256").update(value, "utf8").digest();
-}
-
-function timingSafeEqualString(a: string, b: string): boolean {
-  const ba = sha256Hex(a);
-  const bb = sha256Hex(b);
-  if (ba.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ba, bb);
-}
 
 @Controller("auth")
 export class AuthController {
@@ -41,42 +30,155 @@ export class AuthController {
   ) {}
 
   /**
-   * Login do painel administrativo: compara com `ADMIN_PASSWORD` no servidor
-   * e emite o mesmo JWT usado pelas rotas `/admin/*`.
+   * Cadastro inicial do instrutor (nome, RG, telefone, graduação).
+   * Exige Discord OAuth + membro da guild. Liberação do painel é manual no banco (`users.role` = INSTRUCTOR).
    */
-  @Post("admin/password")
+  @Post("instructor/register")
   @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 8, ttl: 60_000 } })
-  async adminPassword(@Body() body: unknown) {
-    const parsed = AdminPasswordSchema.safeParse(body);
+  @Throttle({ default: { limit: 12, ttl: 60_000 } })
+  async registerInstructor(@Body() body: unknown) {
+    const parsed = InstructorRegisterSchema.safeParse(body);
     if (!parsed.success) throw new HttpException(parsed.error.format(), HttpStatus.BAD_REQUEST);
+    const d = parsed.data;
 
-    const expected = process.env.ADMIN_PASSWORD?.trim();
-    if (!expected || expected.length < 8) {
-      throw new HttpException("Painel admin não configurado (ADMIN_PASSWORD).", HttpStatus.SERVICE_UNAVAILABLE);
-    }
+    const tokenOk = await this.discord.accessTokenMatchesUser(d.accessToken, d.discordId);
+    if (!tokenOk) throw new ForbiddenException("Token Discord inválido para este usuário.");
 
-    if (!timingSafeEqualString(parsed.data.password, expected)) {
-      throw new ForbiddenException("Senha incorreta.");
-    }
+    const inGuild = await this.discord.isGuildMember(d.accessToken);
+    if (!inGuild) throw new ForbiddenException("Você precisa estar no servidor Discord autorizado.");
 
-    const user = await this.prisma.user.upsert({
-      where: { discordId: PANEL_DISCORD_ID },
-      update: { username: "Operador Painel", role: "ADMIN" },
-      create: { discordId: PANEL_DISCORD_ID, username: "Operador Painel", role: "ADMIN" },
+    await this.prisma.instructorRegistration.upsert({
+      where: { discordId: d.discordId },
+      update: {
+        fullName: sanitizeText(d.fullName, 120),
+        rg: sanitizeText(d.rg.replace(/\D/g, ""), 20),
+        phone: sanitizeText(d.phone, 20),
+        graduation: sanitizeText(d.graduation, 120),
+      },
+      create: {
+        discordId: d.discordId,
+        fullName: sanitizeText(d.fullName, 120),
+        rg: sanitizeText(d.rg.replace(/\D/g, ""), 20),
+        phone: sanitizeText(d.phone, 20),
+        graduation: sanitizeText(d.graduation, 120),
+      },
     });
 
-    const token = await this.jwt.signAsync({ sub: user.id, discordId: user.discordId, role: user.role });
-    return { token, user: { id: user.id, username: user.username, role: user.role } };
+    await this.prisma.user.upsert({
+      where: { discordId: d.discordId },
+      update: {
+        username: d.username,
+        email: d.email ?? undefined,
+        avatar: d.avatar ?? undefined,
+      },
+      create: {
+        discordId: d.discordId,
+        username: d.username,
+        email: d.email ?? undefined,
+        avatar: d.avatar ?? undefined,
+        role: "USER",
+      },
+    });
+
+    this.discord.sendWebhook(undefined, [
+      {
+        title: "Novo cadastro de instrutor (painel)",
+        color: 0x4a6741,
+        fields: [
+          { name: "Nome", value: sanitizeText(d.fullName, 120), inline: true },
+          { name: "Discord ID", value: d.discordId, inline: true },
+          { name: "Graduação", value: sanitizeText(d.graduation, 120), inline: false },
+        ],
+      },
+    ]);
+
+    return { ok: true };
   }
 
   /**
-   * OAuth Discord (opcional): guild + cargo admin — mantido para integrações legadas.
+   * Verifica acesso ao painel:
+   * - Cargo Admin no Discord → JWT ADMIN (atalho de staff).
+   * - `users.role` = INSTRUCTOR no banco (definido manualmente após análise do cadastro) → JWT INSTRUCTOR.
+   * - `users.role` = ADMIN só no banco → JWT ADMIN.
+   * - Cadastro em `instructor_registrations` + `users.role` = USER → aguarda você alterar `role` para INSTRUCTOR.
+   */
+  @Post("instructor/gate")
+  @SkipThrottle()
+  async instructorGate(@Body() body: unknown) {
+    const parsed = DiscordSessionSchema.safeParse(body);
+    if (!parsed.success) throw new HttpException(parsed.error.format(), HttpStatus.BAD_REQUEST);
+    const { accessToken, discordId, username, email, avatar } = parsed.data;
+
+    const tokenOk = await this.discord.accessTokenMatchesUser(accessToken, discordId);
+    if (!tokenOk) throw new ForbiddenException("Token Discord inválido.");
+
+    const inGuild = await this.discord.isGuildMember(accessToken);
+    if (!inGuild) {
+      throw new ForbiddenException("Entre no servidor Discord autorizado.");
+    }
+
+    const isDiscordAdmin = await this.discord.userHasAdminRole(accessToken);
+    if (isDiscordAdmin) {
+      const user = await this.prisma.user.upsert({
+        where: { discordId },
+        update: { username, email: email ?? undefined, avatar: avatar ?? undefined, role: "ADMIN" },
+        create: { discordId, username, email: email ?? undefined, avatar: avatar ?? undefined, role: "ADMIN" },
+      });
+      const token = await this.jwt.signAsync({ sub: user.id, discordId, role: user.role });
+      return { phase: "OK", access: "ADMIN", token, user: { id: user.id, username: user.username, role: user.role } };
+    }
+
+    const existing = await this.prisma.user.findUnique({ where: { discordId } });
+
+    if (existing?.role === "INSTRUCTOR") {
+      const user = await this.prisma.user.update({
+        where: { discordId },
+        data: { username, email: email ?? undefined, avatar: avatar ?? undefined },
+      });
+      const token = await this.jwt.signAsync({ sub: user.id, discordId, role: user.role });
+      return { phase: "OK", access: "INSTRUCTOR", token, user: { id: user.id, username: user.username, role: user.role } };
+    }
+
+    if (existing?.role === "ADMIN") {
+      const user = await this.prisma.user.update({
+        where: { discordId },
+        data: { username, email: email ?? undefined, avatar: avatar ?? undefined },
+      });
+      const token = await this.jwt.signAsync({ sub: user.id, discordId, role: user.role });
+      return { phase: "OK", access: "ADMIN", token, user: { id: user.id, username: user.username, role: user.role } };
+    }
+
+    const registration = await this.prisma.instructorRegistration.findUnique({ where: { discordId } });
+    if (!registration) {
+      return { phase: "NEED_REGISTER" };
+    }
+
+    await this.prisma.user.upsert({
+      where: { discordId },
+      update: {
+        username,
+        email: email ?? undefined,
+        avatar: avatar ?? undefined,
+      },
+      create: {
+        discordId,
+        username,
+        email: email ?? undefined,
+        avatar: avatar ?? undefined,
+        role: "USER",
+      },
+    });
+
+    return { phase: "WAITING_APPROVAL" };
+  }
+
+  /**
+   * Legado: apenas cargo Admin no Discord (sem fluxo de instrutor).
    */
   @Post("discord/exchange")
   @SkipThrottle()
   async exchange(@Body() body: unknown) {
-    const parsed = ExchangeSchema.safeParse(body);
+    const parsed = DiscordSessionSchema.safeParse(body);
     if (!parsed.success) throw new HttpException(parsed.error.format(), HttpStatus.BAD_REQUEST);
     const { accessToken, discordId, username, email, avatar } = parsed.data;
 

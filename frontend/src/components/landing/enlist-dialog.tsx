@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -30,9 +31,17 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
+const inputClass =
+  "rounded-none border border-gold/40 bg-tactical px-3 py-2.5 font-body text-sm text-ice placeholder:text-ice/35 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold";
+
 export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>();
 
   useEffect(() => {
     if (open) api.get("/courses").then((r) => setCourses(r.data ?? [])).catch(() => setCourses([]));
@@ -57,15 +66,27 @@ export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start md:items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded border border-olive-700/60 bg-ink-800 my-8">
-        <div className="flex items-center justify-between border-b border-olive-800/60 px-6 py-4">
-          <h3 className="font-display text-xl text-olive-100">Ficha de Alistamento</h3>
-          <button type="button" onClick={onClose} className="text-olive-300 hover:text-olive-100">
-            <X />
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm md:items-center">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="enlist-title"
+        className="my-8 w-full max-w-2xl border-2 border-gold/50 bg-ink-800 shadow-tactical"
+      >
+        <div className="flex items-center justify-between border-b border-gold/30 px-6 py-4">
+          <h3 id="enlist-title" className="font-display text-2xl uppercase tracking-[0.12em] text-ice">
+            Ficha de alistamento
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="border border-gold/30 p-2 text-gold transition hover:border-gold hover:bg-gold/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            aria-label="Fechar"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 px-6 py-6 text-sm md:grid-cols-2">
           {[
             ["fullName", "Nome completo", "text", "md:col-span-2"],
             ["age", "Idade", "number"],
@@ -77,22 +98,18 @@ export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => 
             ["city", "Cidade", "text"],
             ["state", "Estado (UF)", "text"],
           ].map(([name, label, type, span]) => (
-            <label key={name as string} className={`flex flex-col gap-1 ${span ?? ""}`}>
-              <span className="text-olive-200/80">{label as string}</span>
-              <input
-                type={type as string}
-                {...register(name as any)}
-                className="rounded bg-ink-900 border border-olive-800 px-3 py-2 text-olive-50 focus:outline-none focus:border-olive-400"
-              />
+            <label key={name as string} className={`flex flex-col gap-1.5 ${span ?? ""}`}>
+              <span className="font-subtitle text-[10px] uppercase tracking-[0.2em] text-gold/90">{label as string}</span>
+              <input type={type as string} {...register(name as any)} className={inputClass} />
               {errors[name as keyof FormData] && (
-                <span className="text-red-400 text-xs">{(errors as any)[name]?.message}</span>
+                <span className="text-xs text-bravery">{(errors as any)[name]?.message}</span>
               )}
             </label>
           ))}
 
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-olive-200/80">Curso desejado</span>
-            <select {...register("courseId")} className="rounded bg-ink-900 border border-olive-800 px-3 py-2 text-olive-50">
+          <label className="flex flex-col gap-1.5 md:col-span-2">
+            <span className="font-subtitle text-[10px] uppercase tracking-[0.2em] text-gold/90">Curso desejado</span>
+            <select {...register("courseId")} className={inputClass}>
               <option value="">Selecione...</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -100,36 +117,46 @@ export function EnlistDialog({ open, onClose }: { open: boolean; onClose: () => 
                 </option>
               ))}
             </select>
-            {errors.courseId && <span className="text-red-400 text-xs">{errors.courseId.message}</span>}
+            {errors.courseId && <span className="text-xs text-bravery">{errors.courseId.message}</span>}
           </label>
 
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-olive-200/80">Experiência anterior (opcional)</span>
-            <textarea rows={2} {...register("experience")} className="rounded bg-ink-900 border border-olive-800 px-3 py-2 text-olive-50" />
+          <label className="flex flex-col gap-1.5 md:col-span-2">
+            <span className="font-subtitle text-[10px] uppercase tracking-[0.2em] text-gold/90">
+              Experiência anterior (opcional)
+            </span>
+            <textarea rows={2} {...register("experience")} className={inputClass} />
           </label>
 
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-olive-200/80">Motivação</span>
-            <textarea rows={3} {...register("motivation")} className="rounded bg-ink-900 border border-olive-800 px-3 py-2 text-olive-50" />
-            {errors.motivation && <span className="text-red-400 text-xs">{errors.motivation.message}</span>}
+          <label className="flex flex-col gap-1.5 md:col-span-2">
+            <span className="font-subtitle text-[10px] uppercase tracking-[0.2em] text-gold/90">Motivação</span>
+            <textarea rows={3} {...register("motivation")} className={inputClass} />
+            {errors.motivation && <span className="text-xs text-bravery">{errors.motivation.message}</span>}
           </label>
 
-          <label className="md:col-span-2 flex items-start gap-2 text-olive-200/80">
-            <input type="checkbox" {...register("acceptedTerms")} className="mt-1" />
-            <span>Declaro que as informações são verdadeiras e aceito os termos de alistamento.</span>
+          <label className="flex items-start gap-3 md:col-span-2">
+            <input type="checkbox" {...register("acceptedTerms")} className="mt-1 h-4 w-4 rounded-none border-gold text-gold focus:ring-gold" />
+            <span className="font-body text-sm text-ice/75">
+              Declaro que as informações são verdadeiras e aceito os termos de alistamento.
+            </span>
           </label>
-          {errors.acceptedTerms && <span className="md:col-span-2 text-red-400 text-xs">{errors.acceptedTerms.message}</span>}
+          {errors.acceptedTerms && (
+            <span className="md:col-span-2 text-xs text-bravery">{errors.acceptedTerms.message}</span>
+          )}
 
-          <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded border border-olive-800 text-olive-200 hover:bg-ink-700">
+          <div className="flex flex-col-reverse gap-3 border-t border-gold/20 pt-6 md:col-span-2 md:flex-row md:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="border border-gold/40 px-6 py-2.5 font-subtitle text-[10px] uppercase tracking-[0.25em] text-ice transition hover:border-gold hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 rounded bg-olive-600 text-olive-50 font-semibold tracking-wider hover:bg-olive-500 disabled:opacity-50"
+              className="border-2 border-gold bg-gold px-8 py-2.5 font-subtitle text-[10px] uppercase tracking-[0.28em] text-tactical transition hover:bg-transparent hover:text-gold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              {isSubmitting ? "ENVIANDO..." : "ENVIAR ALISTAMENTO"}
+              {isSubmitting ? "Enviando…" : "Enviar alistamento"}
             </button>
           </div>
         </form>

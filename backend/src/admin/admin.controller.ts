@@ -50,9 +50,7 @@ export class AdminController {
 
   @Get("settings")
   settings() {
-    const p = process.env.ADMIN_PASSWORD?.trim();
     return {
-      adminPasswordConfigured: Boolean(p && p.length >= 8),
       emailEnabled: this.email.isConfigured(),
       discordWebhook: Boolean(process.env.DISCORD_WEBHOOK_URL),
       discordDm: Boolean(process.env.DISCORD_BOT_TOKEN),

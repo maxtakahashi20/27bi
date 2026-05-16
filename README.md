@@ -2,35 +2,28 @@
 
 Monorepo: **Next.js** (`frontend/`) + **NestJS** (`backend/`) + **Prisma** + **PostgreSQL** (ex.: Supabase).
 
-## Importante: GitHub ≠ variáveis no Render
+## Acesso ao painel `/admin`
 
-O arquivo **`backend/.env` não vai para o GitHub** (está no `.gitignore`).  
-Fazer **push** só envia **código**. As variáveis **`ADMIN_PASSWORD`**, `DATABASE_URL`, `JWT_SECRET`, etc. têm de ser criadas **no painel do Render** (Environment), senão o painel `/admin` continua com erro *“Painel admin não configurado (ADMIN_PASSWORD)”*.
+1. Entrar com **Discord** (identifica a conta e exige estar no servidor configurado).
+2. Preencher **cadastro** (nome, RG, telefone, graduação) → grava em `instructor_registrations` e cria/atualiza a linha em `users` com `role = USER`.
+3. No **PostgreSQL**, você analisa o cadastro (ex.: tabela `instructor_registrations`) e, se aprovar, altera na tabela **`users`** a coluna **`role`** para **`INSTRUCTOR`** (para o `discord_id` correspondente).
+4. A pessoa **recarrega a página** (F5) ou clica em **Verificar** → recebe JWT e entra no painel.
 
-### Checklist Render (Web Service da API)
+**Atalho staff:** quem tem o cargo de **Administrador** no Discord (`DISCORD_ADMIN_ROLE_ID`) continua entrando como **ADMIN** sem esse fluxo de cadastro. Também é possível promover alguém a **ADMIN** só no banco (`users.role = ADMIN`).
 
-No [Render Dashboard](https://dashboard.render.com) → seu serviço (ex.: `two7bi`) → **Environment**:
+## GitHub ≠ variáveis no Render
 
-| Variável | Obrigatório | Nota |
-|----------|-------------|------|
-| `ADMIN_PASSWORD` | **Sim** para `/admin` | Mínimo **8** caracteres. Não existe valor padrão no código. |
-| `DATABASE_URL` | Sim | Connection string do Postgres (Supabase). |
-| `JWT_SECRET` | Sim | Segredo forte para assinar JWT. |
-| `FRONTEND_URL` | Sim para CORS | Ex.: `http://localhost:3000` ou várias: `http://localhost:3000,https://seu-site.vercel.app` |
-| `NODE_VERSION` | Recomendado | Ex.: `20` (alinhado ao projeto). |
+O **`backend/.env` não sobe no GitHub** (`.gitignore`). No **Render**, configure no **Environment**: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `DISCORD_*`, etc. (veja `backend/.env.example`).
 
-Depois de salvar, aguarde o **redeploy** automático ou use **Manual Deploy**.
+## Checklist rápido no Render
 
-### Frontend local apontando para a API no Render
-
-Em `frontend/.env`:
-
-```env
-NEXT_PUBLIC_API_URL=https://SEU-SERVICO.onrender.com/api
-BACKEND_INTERNAL_URL=https://SEU-SERVICO.onrender.com/api
-```
-
-O login do admin chama `POST .../api/auth/admin/password` nesse host — a senha que você digita é **a mesma** que colocou em `ADMIN_PASSWORD` **no Render**, não a do `.env` local do backend (esse arquivo só vale se rodar o Nest na sua máquina).
+| Variável | Uso |
+|----------|-----|
+| `DATABASE_URL` | Postgres (Supabase) |
+| `JWT_SECRET` | Assinatura JWT |
+| `FRONTEND_URL` | CORS (pode listar várias origens separadas por vírgula) |
+| `DISCORD_GUILD_ID` | Servidor autorizado |
+| `DISCORD_ADMIN_ROLE_ID` | Cargo admin no Discord (acesso direto) |
 
 ## Desenvolvimento local
 
@@ -39,7 +32,7 @@ O login do admin chama `POST .../api/auth/admin/password` nesse host — a senha
 ```bash
 cd backend
 cp .env.example .env
-# Edite .env: DATABASE_URL, JWT_SECRET, ADMIN_PASSWORD (≥8), FRONTEND_URL, etc.
+# Preencha DATABASE_URL, JWT_SECRET, FRONTEND_URL, DISCORD_*
 npm install
 npx prisma generate
 npx prisma migrate deploy
@@ -56,17 +49,11 @@ npm install
 npm run dev
 ```
 
-## URLs da API
+## API (prefixo `/api`)
 
-O Nest usa prefixo global **`/api`**. Exemplo: `https://two7bi.onrender.com/api/health` (se existir rota) ou `.../api/courses`.
-
-## Documentação extra
-
-- `backend/.env.example` — lista de variáveis do servidor.
-- `frontend/.env.example` — variáveis do Next.
-- `docs/` — guias Discord/deploy, se existirem.
+Ex.: `POST /api/auth/instructor/register`, `POST /api/auth/instructor/gate`.
 
 ## Segurança
 
-- Nunca commite `.env` com senhas ou tokens reais.
-- Troque segredos se vazaram em repositório público.
+- Não commite `.env` com segredos reais.
+- Troque tokens se vazaram em repositório público.
