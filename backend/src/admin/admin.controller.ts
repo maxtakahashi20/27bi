@@ -23,19 +23,22 @@ import { EmailService } from "../email/email.service";
 
 const StatusEnum = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 
+const InstitutionEnum = z.enum([
+  "POLICIA_MILITAR",
+  "GUARDA_CIVIL",
+  "POLICIA_FEDERAL",
+  "POLICIA_CIVIL",
+  "EXERCITO",
+  "OUTRO",
+]);
+
 const PatchStatusSchema = z.object({
   status: StatusEnum.optional(),
   fullName: z.string().min(3).max(120).optional(),
-  age: z.coerce.number().int().min(17).max(60).optional(),
-  cpf: z.string().min(11).max(14).optional(),
+  rg: z.string().max(32).optional(),
+  phone: z.string().max(32).optional(),
   discordTag: z.string().min(2).max(64).optional(),
-  discordUserId: z.string().max(32).nullable().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().min(8).max(20).optional(),
-  city: z.string().min(2).max(80).optional(),
-  state: z.string().min(2).max(40).optional(),
-  motivation: z.string().min(10).max(2000).optional(),
-  experience: z.string().max(2000).nullable().optional(),
+  institution: InstitutionEnum.optional(),
   courseId: z.string().min(1).optional(),
 });
 
@@ -136,8 +139,10 @@ export class AdminController {
         ? {
             OR: [
               { fullName: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
               { discordTag: { contains: q, mode: "insensitive" } },
+              { rg: { contains: q, mode: "insensitive" } },
+              { phone: { contains: q, mode: "insensitive" } },
+              { institution: { contains: q, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -172,22 +177,34 @@ export class AdminController {
     if (!prev) throw new HttpException("Não encontrado", HttpStatus.NOT_FOUND);
 
     const b = parsed.data;
+    if (req.user?.role === "INSTRUCTOR") {
+      const touched = (Object.keys(b) as (keyof typeof b)[]).filter((k) => b[k] !== undefined);
+      if (touched.some((k) => k !== "status")) {
+        throw new HttpException(
+          "Instrutores só podem alterar o status (use a lista ou altere apenas o status).",
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
     const data: Prisma.ApplicationUpdateInput = {};
 
     if (b.status !== undefined) data.status = b.status;
     if (b.fullName !== undefined) data.fullName = sanitizeText(b.fullName, 120);
-    if (b.age !== undefined) data.age = b.age;
-    if (b.cpf !== undefined) data.cpf = sanitizeText(b.cpf.replace(/\D/g, ""), 14);
-    if (b.discordTag !== undefined) data.discordTag = sanitizeText(b.discordTag, 64);
-    if (b.discordUserId !== undefined) {
-      data.discordUserId = b.discordUserId ? this.discord.parseDiscordUserId(b.discordUserId) : null;
+    if (b.rg !== undefined) {
+      const d = b.rg.replace(/\D/g, "");
+      if (!/^\d{6}$/.test(d)) throw new HttpException("RG: informe exatamente 6 dígitos numéricos", HttpStatus.BAD_REQUEST);
+      data.rg = d;
     }
-    if (b.email !== undefined) data.email = sanitizeText(b.email.toLowerCase(), 120);
-    if (b.phone !== undefined) data.phone = sanitizeText(b.phone, 20);
-    if (b.city !== undefined) data.city = sanitizeText(b.city, 80);
-    if (b.state !== undefined) data.state = sanitizeText(b.state, 40).toUpperCase();
-    if (b.motivation !== undefined) data.motivation = sanitizeText(b.motivation, 2000);
-    if (b.experience !== undefined) data.experience = b.experience === null ? null : sanitizeText(b.experience, 2000);
+    if (b.phone !== undefined) {
+      const d = b.phone.replace(/\D/g, "");
+      if (!/^\d{6}$/.test(d)) {
+        throw new HttpException("Telefone: informe exatamente 6 dígitos numéricos", HttpStatus.BAD_REQUEST);
+      }
+      data.phone = d;
+    }
+    if (b.discordTag !== undefined) data.discordTag = sanitizeText(b.discordTag, 64);
+    if (b.institution !== undefined) data.institution = b.institution;
 
     if (b.courseId !== undefined) {
       const course = await this.prisma.course.findUnique({ where: { id: b.courseId } });
@@ -223,20 +240,12 @@ export class AdminController {
         },
       ]);
 
-      const dmId = app.discordUserId ?? this.discord.parseDiscordUserId(app.discordTag);
+      const dmId = this.discord.parseDiscordUserId(app.discordTag);
       const msg =
         b.status === "APPROVED"
           ? `Sua inscrição no **27º BI Pqdt** (${app.course.name}) foi **aprovada**. Aguarde contato da coordenação.`
           : `Sua inscrição no **27º BI Pqdt** (${app.course.name}) foi **reprovada**. Em caso de dúvidas, procure o setor de recrutamento no Discord oficial.`;
       if (dmId) await this.discord.sendDM(dmId, msg);
-
-      const subject =
-        b.status === "APPROVED" ? "Inscrição aprovada — 27º BI Pqdt" : "Atualização da inscrição — 27º BI Pqdt";
-      await this.email.sendTransactional(
-        app.email,
-        subject,
-        `<p>Olá, <strong>${app.fullName}</strong>.</p><p>${msg}</p><p><small>27º Batalhão de Infantaria Paraquedista</small></p>`,
-      );
     }
 
     return app;
@@ -244,6 +253,9 @@ export class AdminController {
 
   @Delete("applications/:id")
   async remove(@Req() req: Request, @Param("id") id: string) {
+    if (req.user?.role !== "ADMIN") {
+      throw new HttpException("Apenas administradores podem excluir inscrições.", HttpStatus.FORBIDDEN);
+    }
     await this.prisma.application.delete({ where: { id } });
     await this.prisma.log.create({
       data: { adminId: req.user?.sub, action: "APPLICATION_DELETE", targetId: id },

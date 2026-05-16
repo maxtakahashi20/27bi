@@ -25,6 +25,27 @@ O **`backend/.env` não sobe no GitHub** (`.gitignore`). No **Render**, configur
 | `DISCORD_GUILD_ID` | Servidor autorizado |
 | `DISCORD_ADMIN_ROLE_ID` | Cargo admin no Discord (acesso direto) |
 
+### Baseline no Supabase (erro P3005 — banco já tem tabelas)
+
+Use **uma vez** quando o Postgres já estiver com o schema atual (tabelas/enums criados), mas o Prisma ainda não tiver registro em `_prisma_migrations` — típico após `db push`, SQL manual ou deploy anterior incompleto.
+
+1. No seu PC, em `backend/`, aponte `DATABASE_URL` para o **mesmo** banco do Render (string do Supabase; **Session pooler** costuma funcionar com IPv4 no Render).
+2. Rode:
+
+```bash
+cd backend
+npm install
+npx prisma generate
+npm run prisma:baseline
+```
+
+3. Confirme com `npx prisma migrate deploy` (deve aplicar **0** migrações novas ou só as que ainda faltam).
+4. Faça **redeploy** no Render (o build pode continuar com `npx prisma migrate deploy` no Build Command).
+
+**Importante:** `prisma:baseline` só faz sentido se o SQL das duas pastas em `prisma/migrations/` **já foi aplicado** ao banco. Se o banco não bater com o schema, prefira banco vazio + `migrate deploy` sem baseline.
+
+**Build no Render (exemplo):** `npm install && npm run build && npx prisma generate && npx prisma migrate deploy` — **Start:** `npm run start:prod`.
+
 ## Desenvolvimento local
 
 **Backend**

@@ -1,5 +1,13 @@
 export type ApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
 
+export type InstitutionCode =
+  | "POLICIA_MILITAR"
+  | "GUARDA_CIVIL"
+  | "POLICIA_FEDERAL"
+  | "POLICIA_CIVIL"
+  | "EXERCITO"
+  | "OUTRO";
+
 export type CourseDto = {
   id: string;
   name: string;
@@ -13,18 +21,11 @@ export type CourseDto = {
 export type ApplicationDto = {
   id: string;
   fullName: string;
-  age: number;
-  cpf: string;
-  discordTag: string;
-  discordUserId: string | null;
-  email: string;
+  rg: string;
   phone: string;
-  city: string;
-  state: string;
+  discordTag: string;
+  institution: InstitutionCode | string;
   desiredCourse: string;
-  experience: string | null;
-  motivation: string;
-  acceptedTerms: boolean;
   status: ApplicationStatus;
   courseId: string;
   createdAt: string;

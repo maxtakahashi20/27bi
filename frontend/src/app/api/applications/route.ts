@@ -2,23 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rate-limit";
 
+const sixDigits = z
+  .string()
+  .transform((s) => s.replace(/\D/g, ""))
+  .refine((s) => /^\d{6}$/.test(s), "RG e telefone: exatamente 6 dígitos numéricos");
+
 const schema = z.object({
   fullName: z.string().min(3).max(120),
-  age: z.coerce.number().int().min(17).max(60),
-  cpf: z
+  rg: sixDigits,
+  phone: sixDigits,
+  discordTag: z
     .string()
-    .transform((s) => s.replace(/\D/g, ""))
-    .refine((s) => s.length >= 11 && s.length <= 14, "CPF inválido"),
-  discordTag: z.string().min(2).max(64),
-  discordUserId: z.string().max(32).optional(),
-  email: z.string().email(),
-  phone: z.string().min(8).max(20),
-  city: z.string().min(2).max(80),
-  state: z.string().min(2).max(40),
+    .min(2)
+    .max(64)
+    .transform((s) => s.replace(/^@+/, "").trim()),
+  institution: z.enum([
+    "POLICIA_MILITAR",
+    "GUARDA_CIVIL",
+    "POLICIA_FEDERAL",
+    "POLICIA_CIVIL",
+    "EXERCITO",
+    "OUTRO",
+  ]),
   courseId: z.string().min(1),
-  experience: z.string().max(2000).optional(),
-  motivation: z.string().min(10).max(2000),
-  acceptedTerms: z.literal(true),
 });
 
 function assertAllowedOrigin(req: NextRequest): boolean {

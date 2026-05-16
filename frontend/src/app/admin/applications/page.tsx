@@ -6,6 +6,7 @@ import { Check, FileText, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAdminAuth } from "@/contexts/admin-auth";
 import type { ApplicationDto } from "@/types/models";
+import { institutionLabel } from "@/lib/institutions";
 import { toast } from "sonner";
 
 export default function AdminApplicationsPage() {
@@ -80,7 +81,7 @@ export default function AdminApplicationsPage() {
             setPage(1);
             setQ(e.target.value);
           }}
-          placeholder="Buscar nome, email ou Discord..."
+          placeholder="Buscar nome, Discord, RG, telefone ou guarnição..."
           className="flex-1 bg-ink-900 border border-olive-800 rounded px-3 py-2 text-sm"
         />
         <select
@@ -104,6 +105,9 @@ export default function AdminApplicationsPage() {
             <thead className="text-left text-olive-400 border-b border-olive-800/60">
               <tr>
                 <th className="p-3">Nome</th>
+                <th className="p-3">RG</th>
+                <th className="p-3">Tel.</th>
+                <th className="p-3">Guarnição</th>
                 <th className="p-3">Discord</th>
                 <th className="p-3">Curso</th>
                 <th className="p-3">Data</th>
@@ -119,7 +123,12 @@ export default function AdminApplicationsPage() {
                     <Link href={`/admin/applications/${a.id}`} className="text-olive-100 hover:underline font-medium">
                       {a.fullName}
                     </Link>
-                    <div className="text-xs text-olive-200/50">{a.email}</div>
+                    <div className="text-xs text-olive-200/50">@{a.discordTag}</div>
+                  </td>
+                  <td className="p-3 font-mono text-olive-200/90">{a.rg}</td>
+                  <td className="p-3 font-mono text-olive-200/90">{a.phone}</td>
+                  <td className="p-3 text-olive-200/80 text-xs max-w-[140px] truncate" title={institutionLabel(a.institution)}>
+                    {institutionLabel(a.institution)}
                   </td>
                   <td className="p-3 text-olive-200/90">{a.discordTag}</td>
                   <td className="p-3 text-olive-200/80">{a.course?.name}</td>
@@ -195,7 +204,7 @@ export default function AdminApplicationsPage() {
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-10 text-center text-olive-200/50">
+                  <td colSpan={10} className="p-10 text-center text-olive-200/50">
                     Nenhuma inscrição encontrada.
                   </td>
                 </tr>

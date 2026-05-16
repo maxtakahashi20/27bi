@@ -7,20 +7,24 @@ import { z } from "zod";
 import { api } from "@/lib/api";
 import { useAdminAuth } from "@/contexts/admin-auth";
 import type { ApplicationDto, CourseDto } from "@/types/models";
+import { INSTITUTION_OPTIONS } from "@/lib/institutions";
 import { toast } from "sonner";
+
+const institutionEnum = z.enum([
+  "POLICIA_MILITAR",
+  "GUARDA_CIVIL",
+  "POLICIA_FEDERAL",
+  "POLICIA_CIVIL",
+  "EXERCITO",
+  "OUTRO",
+]);
 
 const schema = z.object({
   fullName: z.string().min(3),
-  age: z.coerce.number().int().min(17).max(60),
-  cpf: z.string().min(11),
+  rg: z.string().regex(/^\d{6}$/, "6 dígitos"),
+  phone: z.string().regex(/^\d{6}$/, "6 dígitos"),
   discordTag: z.string().min(2),
-  discordUserId: z.string().optional(),
-  email: z.string().email(),
-  phone: z.string().min(8),
-  city: z.string().min(2),
-  state: z.string().min(2),
-  motivation: z.string().min(10),
-  experience: z.string().optional(),
+  institution: institutionEnum,
   courseId: z.string().min(1),
   status: z.enum(["PENDING", "APPROVED", "REJECTED"]),
 });
@@ -48,16 +52,12 @@ export default function AdminApplicationDetailPage() {
         setCourses(c.data ?? []);
         form.reset({
           fullName: a.data.fullName,
-          age: a.data.age,
-          cpf: a.data.cpf,
+          rg: a.data.rg.replace(/\D/g, "").slice(0, 6),
+          phone: a.data.phone.replace(/\D/g, "").slice(0, 6),
           discordTag: a.data.discordTag,
-          discordUserId: a.data.discordUserId ?? "",
-          email: a.data.email,
-          phone: a.data.phone,
-          city: a.data.city,
-          state: a.data.state,
-          motivation: a.data.motivation,
-          experience: a.data.experience ?? "",
+          institution: institutionEnum.safeParse(a.data.institution).success
+            ? (a.data.institution as Form["institution"])
+            : "OUTRO",
           courseId: a.data.courseId,
           status: a.data.status,
         });
@@ -76,15 +76,7 @@ export default function AdminApplicationDetailPage() {
     }
     const data = parsed.data;
     try {
-      await api.patch(
-        `/admin/applications/${id}`,
-        {
-          ...data,
-          discordUserId: data.discordUserId || null,
-          experience: data.experience || null,
-        },
-        { headers: apiHeaders },
-      );
+      await api.patch(`/admin/applications/${id}`, data, { headers: apiHeaders });
       toast.success("Inscrição atualizada");
     } catch {
       toast.error("Falha ao salvar");
@@ -106,8 +98,7 @@ export default function AdminApplicationDetailPage() {
         <p className="text-xs text-olive-200/50 mt-1">ID: {app.id}</p>
         {readOnly && (
           <p className="mt-3 text-sm text-amber-200/90 bg-amber-950/30 border border-amber-800/50 rounded-lg px-3 py-2">
-            Modo leitura (instrutor): você vê todas as respostas do formulário. Somente administradores podem editar ou
-            excluir.
+            Modo leitura (instrutor): visualização completa. Somente administradores podem editar ou excluir.
           </p>
         )}
       </div>
@@ -121,41 +112,26 @@ export default function AdminApplicationDetailPage() {
           <input {...form.register("fullName")} disabled={readOnly} className={fieldClass} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Idade</span>
-          <input type="number" {...form.register("age")} disabled={readOnly} className={fieldClass} />
+          <span className="text-olive-300/80">RG (6 dígitos)</span>
+          <input {...form.register("rg")} disabled={readOnly} className={fieldClass} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">CPF</span>
-          <input {...form.register("cpf")} disabled={readOnly} className={fieldClass} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Discord (tag)</span>
-          <input {...form.register("discordTag")} disabled={readOnly} className={fieldClass} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Discord user ID (opcional, para DM)</span>
-          <input
-            {...form.register("discordUserId")}
-            disabled={readOnly}
-            className={fieldClass}
-            placeholder="ex: 123456789012345678"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Email</span>
-          <input type="email" {...form.register("email")} disabled={readOnly} className={fieldClass} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Telefone</span>
+          <span className="text-olive-300/80">Telefone (6 dígitos)</span>
           <input {...form.register("phone")} disabled={readOnly} className={fieldClass} />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Cidade</span>
-          <input {...form.register("city")} disabled={readOnly} className={fieldClass} />
+        <label className="flex flex-col gap-1 md:col-span-2">
+          <span className="text-olive-300/80">Discord (usuário)</span>
+          <input {...form.register("discordTag")} disabled={readOnly} className={fieldClass} />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Estado</span>
-          <input {...form.register("state")} disabled={readOnly} className={fieldClass} />
+        <label className="flex flex-col gap-1 md:col-span-2">
+          <span className="text-olive-300/80">Guarnição / órgão</span>
+          <select {...form.register("institution")} disabled={readOnly} className={fieldClass}>
+            {INSTITUTION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex flex-col gap-1 md:col-span-2">
           <span className="text-olive-300/80">Curso</span>
@@ -167,18 +143,6 @@ export default function AdminApplicationDetailPage() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 md:col-span-2">
-          <span className="text-olive-300/80">Experiência anterior</span>
-          <textarea rows={2} {...form.register("experience")} disabled={readOnly} className={fieldClass} />
-        </label>
-        <label className="flex flex-col gap-1 md:col-span-2">
-          <span className="text-olive-300/80">Motivação</span>
-          <textarea rows={3} {...form.register("motivation")} disabled={readOnly} className={fieldClass} />
-        </label>
-        <div className="flex flex-col gap-1">
-          <span className="text-olive-300/80">Aceitou os termos</span>
-          <div className={`${fieldClass} text-olive-100`}>{app.acceptedTerms ? "Sim" : "Não"}</div>
-        </div>
         <label className="flex flex-col gap-1">
           <span className="text-olive-300/80">Status</span>
           <select {...form.register("status")} disabled={readOnly} className={fieldClass}>

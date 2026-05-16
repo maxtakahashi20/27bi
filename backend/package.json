@@ -13,6 +13,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "prisma:baseline": "prisma migrate resolve --applied 20260216120000_instructor_registrations && prisma migrate resolve --applied 20260515160000_init",
     "db:up": "docker compose up -d"
   },
   "dependencies": {

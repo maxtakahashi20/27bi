@@ -1,6 +1,9 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
+import { springSnappy, staggerContainer } from "@/lib/landing-motion";
 
 const timeline = [
   {
@@ -28,18 +31,42 @@ const timeline = [
 export function About() {
   const reduce = useReducedMotion();
   const years = new Date().getFullYear() - 1945;
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  });
+  const imgParallax = useTransform(scrollYProgress, [0, 0.5, 1], reduce ? [0, 0, 0] : [48, 0, -56]);
 
   return (
-    <section id="sobre" className="relative bg-olive-deep py-24 sm:py-28 diagonal-top grain">
+    <section ref={sectionRef} id="sobre" className="relative bg-olive-deep py-24 sm:py-28 diagonal-top grain">
       <div className="pointer-events-none absolute inset-0 bg-grid-faint bg-[length:40px_40px] opacity-[0.12]" aria-hidden />
       <div className="relative z-[1] mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        <div className="mb-16 text-center lg:text-left">
-          <span className="font-subtitle text-[10px] uppercase tracking-[0.45em] text-gold">História &amp; identidade</span>
-          <h2 className="mt-4 font-display text-4xl uppercase tracking-[0.08em] text-ice md:text-5xl lg:text-6xl">
+        <motion.div
+          className="mb-16 text-center lg:text-left"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-40px" }}
+          variants={reduce ? { hidden: {}, show: {} } : staggerContainer}
+        >
+          <motion.span
+            variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: springSnappy } }}
+            className="font-subtitle text-[10px] uppercase tracking-[0.45em] text-gold"
+          >
+            História &amp; identidade
+          </motion.span>
+          <motion.h2
+            variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: springSnappy } }}
+            className="mt-4 font-display text-4xl uppercase tracking-[0.08em] text-ice md:text-5xl lg:text-6xl"
+          >
             Sobre o Batalhão
-          </h2>
-          <div className="mx-auto mt-4 h-px w-20 bg-gold lg:mx-0" />
-        </div>
+          </motion.h2>
+          <motion.div
+            variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1, transition: { delay: 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] } } }}
+            className="mx-auto mt-4 h-px w-20 bg-gold lg:mx-0"
+            style={{ transformOrigin: "left" }}
+          />
+        </motion.div>
 
         <div className="grid grid-cols-1 gap-14 lg:grid-cols-12 lg:gap-12">
           <div className="lg:col-span-7">
@@ -61,17 +88,29 @@ export function About() {
             </motion.div>
 
             <div className="mt-10 flex flex-wrap gap-10 border-y border-gold/25 py-8">
-              <div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ ...springSnappy }}
+                whileHover={reduce ? undefined : { scale: 1.05 }}
+              >
                 <p className="font-display text-5xl text-gold md:text-6xl">
                   {years}
                   <span className="text-gold/90">+</span>
                 </p>
                 <p className="mt-2 font-subtitle text-[10px] uppercase tracking-[0.3em] text-ice/60">Anos de história</p>
-              </div>
-              <div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.06, ...springSnappy }}
+                whileHover={reduce ? undefined : { scale: 1.05 }}
+              >
                 <p className="font-display text-5xl text-gold md:text-6xl">4</p>
                 <p className="mt-2 font-subtitle text-[10px] uppercase tracking-[0.3em] text-ice/60">Eixos operacionais</p>
-              </div>
+              </motion.div>
             </div>
 
             <motion.blockquote
@@ -94,7 +133,30 @@ export function About() {
           </div>
 
           <div className="lg:col-span-5">
-            <div className="relative pl-8">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: reduce ? 0 : 0.6 }}
+              whileHover={reduce ? undefined : { scale: 1.02 }}
+              className="relative mb-10 aspect-[4/3] overflow-hidden border border-gold/30 shadow-tactical lg:mb-0"
+            >
+              <motion.div style={{ y: imgParallax }} className="absolute inset-[-12%] will-change-transform">
+                <Image
+                  src="/landing/batalhao-precursores.jpg"
+                  alt="Formação do Batalhão de Precursores — registro histórico da unidade"
+                  fill
+                  className="object-cover object-center"
+                  sizes="(max-width: 1024px) 100vw, 40vw"
+                />
+              </motion.div>
+              <div className="absolute inset-0 bg-gradient-to-t from-olive-deep/80 via-transparent to-transparent" aria-hidden />
+              <p className="absolute bottom-4 left-4 right-4 font-subtitle text-[9px] uppercase tracking-[0.28em] text-gold/90">
+                Memória institucional
+              </p>
+            </motion.div>
+
+            <div className="relative mt-10 pl-8 lg:mt-12">
               <div className="absolute left-[11px] top-2 bottom-2 w-px bg-gold/40" aria-hidden />
               <ul className="space-y-10">
                 {timeline.map((item, i) => (
